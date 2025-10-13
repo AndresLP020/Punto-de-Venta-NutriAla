@@ -14,7 +14,7 @@ import {
   ArrowDownIcon
 } from '@heroicons/react/24/outline';
 import { Card, Badge } from './ui/index.jsx';
-import { useAdmin } from '../context/AdminContext';
+import { useAdmin } from '../hooks/useAdmin';
 import { useInventory } from '../hooks/useInventory';
 import {
   LineChart,
@@ -160,7 +160,7 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm font-medium">Ingresos Totales</p>
-              <p className="text-2xl font-bold">${financialMetrics.totalRevenue.toLocaleString('es-MX')}</p>
+              <p className="text-2xl font-bold">${financialMetrics.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <ArrowUpIcon className="h-4 w-4 text-green-200 mr-1" />
                 <span className="text-sm text-green-200">+12.5% vs mes anterior</span>
@@ -174,7 +174,7 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-100 text-sm font-medium">Ganancia Bruta</p>
-              <p className="text-2xl font-bold">${financialMetrics.grossProfit.toLocaleString('es-MX')}</p>
+              <p className="text-2xl font-bold">${financialMetrics.grossProfit.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <span className="text-sm text-blue-200">Margen: {financialMetrics.grossMargin.toFixed(1)}%</span>
               </div>
@@ -187,7 +187,7 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-sm font-medium">Valor Inventario</p>
-              <p className="text-2xl font-bold">${financialMetrics.inventoryValue.toLocaleString('es-MX')}</p>
+              <p className="text-2xl font-bold">${financialMetrics.inventoryValue.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <span className="text-sm text-purple-200">ROI: {financialMetrics.inventoryROI.toFixed(1)}%</span>
               </div>
@@ -200,7 +200,7 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-orange-100 text-sm font-medium">Ganancia Potencial</p>
-              <p className="text-2xl font-bold">${financialMetrics.potentialProfit.toLocaleString('es-MX')}</p>
+              <p className="text-2xl font-bold">${financialMetrics.potentialProfit.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <span className="text-sm text-orange-200">{financialMetrics.highTurnoverProducts} productos hot</span>
               </div>

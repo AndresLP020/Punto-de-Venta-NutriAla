@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba del Escáner de Código de Barras</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .scanner-test {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .barcode-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-family: monospace;
+            border: 3px solid #007bff;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .barcode-input:focus {
+            outline: none;
+            border-color: #0056b3;
+            box-shadow: 0 0 10px rgba(0,123,255,0.3);
+        }
+        .scanner-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .scanner-btn:hover {
+            background: #0056b3;
+        }
+        .scanner-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            color: #155724;
+        }
+        .instructions {
+            background: #e2f3ff;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanner-test">
+        <h1>🔍 Prueba del Escáner de Código de Barras</h1>
+        
+        <div class="instructions">
+            <h3>📋 Instrucciones de Prueba:</h3>
+            <ol>
+                <li><strong>Escáner físico:</strong> El campo está enfocado, simplemente escanea</li>
+                <li><strong>App móvil:</strong> Presiona "📱 Simular Escáner"</li>
+                <li><strong>Manual:</strong> Escribe un código y presiona Enter</li>
+                <li><strong>Navegación:</strong> Debería moverse automáticamente al siguiente campo</li>
+            </ol>
+        </div>
+
+        <form id="testForm">
+            <h3>🎯 Campo de Código de Barras (Enfocado Automáticamente):</h3>
+            <div style="display: flex; align-items: center;">
+                <input 
+                    type="text" 
+                    id="barcodeInput" 
+                    class="barcode-input" 
+                    placeholder="🔍 Escanea aquí o escribe manualmente..."
+                    autofocus
+                    autocomplete="off"
+                >
+                <button type="button" id="scanBtn" class="scanner-btn">📱 Simular Escáner</button>
+            </div>
+            
+            <div id="result"></div>
+            
+            <h3>➡️ Campo de Prueba (Siguiente):</h3>
+            <input 
+                type="text" 
+                id="nextField" 
+                style="width: 100%; padding: 10px; margin: 10px 0;"
+                placeholder="Campo siguiente - debería enfocarse automáticamente"
+            >
+            
+            <button type="submit" style="width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; margin-top: 20px;">
+                ✅ Enviar Formulario
+            </button>
+        </form>
+
+        <div id="log" class="log">
+            <strong>📊 Log de Eventos:</strong><br>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let scanning = false;
+        const logElement = document.getElementById('log');
+        const barcodeInput = document.getElementById('barcodeInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const nextField = document.getElementById('nextField');
+        const resultDiv = document.getElementById('result');
+
+        // Función para agregar logs
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}<br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        // Enfocar automáticamente al cargar la página
+        window.addEventListener('load', () => {
+            barcodeInput.focus();
+            addLog('🎯 Campo de código de barras enfocado automáticamente');
+        });
+
+        // Eventos del input de código de barras
+        barcodeInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            addLog(`📝 Código ingresado: "${value}" (${value.length} caracteres)`);
+            
+            if (value.length >= 3) {
+                resultDiv.innerHTML = `<div class="result">✅ Código válido ingresado: <strong>${value}</strong></div>`;
+            } else {
+                resultDiv.innerHTML = '';
+            }
+        });
+
+        barcodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const value = e.target.value.trim();
+                addLog(`⏎ Enter presionado con valor: "${value}"`);
+                
+                if (value.length >= 3) {
+                    addLog('🎯 Moviendo al siguiente campo...');
+                    nextField.focus();
+                    addLog('✅ Campo siguiente enfocado');
+                } else {
+                    addLog('❌ Código muy corto, manteniéndose en campo actual');
+                }
+            }
+        });
+
+        barcodeInput.addEventListener('focus', () => {
+            addLog('🔥 Campo de código de barras enfocado');
+        });
+
+        barcodeInput.addEventListener('blur', () => {
+            addLog('📤 Campo de código de barras perdió el foco');
+        });
+
+        // Botón del escáner simulado
+        scanBtn.addEventListener('click', () => {
+            if (scanning) return;
+            
+            scanning = true;
+            scanBtn.disabled = true;
+            scanBtn.textContent = '🔄 Escaneando...';
+            addLog('🔍 Botón escáner presionado - iniciando simulación');
+            
+            setTimeout(() => {
+                const codigo = prompt('📱 Escáner de Código de Barras\n\nSimula el escaneo:\n1. Pega un código desde tu app móvil\n2. Escribe un código manualmente\n\nCódigo de barras:');
+                
+                if (codigo && codigo.trim()) {
+                    const codigoLimpio = codigo.trim();
+                    addLog(`✅ Código escaneado: "${codigoLimpio}"`);
+                    
+                    barcodeInput.value = codigoLimpio;
+                    barcodeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    setTimeout(() => {
+                        addLog('🎯 Moviendo automáticamente al siguiente campo...');
+                        nextField.focus();
+                        addLog('✅ Navegación automática completada');
+                    }, 100);
+                } else {
+                    addLog('❌ Escaneo cancelado o código vacío');
+                }
+                
+                scanning = false;
+                scanBtn.disabled = false;
+                scanBtn.textContent = '📱 Simular Escáner';
+            }, 300);
+        });
+
+        // Eventos del siguiente campo
+        nextField.addEventListener('focus', () => {
+            addLog('🎯 Campo siguiente enfocado correctamente');
+        });
+
+        // Evento del formulario
+        document.getElementById('testForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const barcodeValue = barcodeInput.value.trim();
+            const nextValue = nextField.value.trim();
+            
+            addLog(`📋 Formulario enviado - Código: "${barcodeValue}", Siguiente: "${nextValue}"`);
+            
+            if (barcodeValue.length >= 3) {
+                alert(`✅ ¡Éxito!\n\nCódigo de barras: ${barcodeValue}\nCampo siguiente: ${nextValue}\n\nEl escáner funciona correctamente!`);
+                addLog('🎉 PRUEBA EXITOSA - El escáner funciona correctamente');
+            } else {
+                alert('❌ Error: Código de barras muy corto');
+                addLog('❌ PRUEBA FALLIDA - Código muy corto');
+            }
+        });
+
+        // Log inicial
+        addLog('🚀 Sistema de prueba del escáner iniciado');
+        addLog('📱 Listo para recibir códigos de barras');
+    </script>
+</body>
+</html>

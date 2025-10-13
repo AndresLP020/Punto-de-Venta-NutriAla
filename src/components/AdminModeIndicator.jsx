@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheckIcon } from '@heroicons/react/24/outline';
-import { useAdmin } from '../context/AdminContext';
+import { useAdmin } from '../hooks/useAdmin';
 
 export default function AdminModeIndicator() {
   const { isAdminMode } = useAdmin();

@@ -9,7 +9,7 @@ import {
   QrCodeIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
-import { useAdmin } from '../../context/AdminContext';
+import { useAdmin } from '../../hooks/useAdmin';
 
 export default function Sidebar() {
   const { isAdminMode } = useAdmin();

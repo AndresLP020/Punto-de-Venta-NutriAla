@@ -141,7 +141,7 @@ export default function Scanner() {
                   <span className="font-medium">Código:</span> {scannedProduct.barcode}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <span className="font-medium">Precio:</span> ${scannedProduct.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="font-medium">Precio:</span> ${scannedProduct.price.toFixed(2)}
                 </p>
                 <p className="text-sm text-gray-600">
                   <span className="font-medium">Stock:</span> {scannedProduct.stock} unidades

@@ -21,14 +21,90 @@ export default function ProductForm({ product, onClose }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const videoRef = useRef(null);
   const [profitMargin, setProfitMargin] = useState(0);
   const [profitAmount, setProfitAmount] = useState(0);
   const barcodeInputRef = useRef(null);
-  // Enfocar input de código de barras al abrir el formulario (solo una vez)
+  // Enfocar input de código de barras al abrir el formulario
   useEffect(() => {
-    barcodeInputRef.current?.focus();
+    const focusBarcode = () => {
+      if (barcodeInputRef.current) {
+        barcodeInputRef.current.focus();
+        barcodeInputRef.current.select();
+        console.log('🎯 Campo de código de barras enfocado para escáner');
+      }
+    };
+
+    // Forzar el enfoque múltiples veces para asegurar que funcione
+    focusBarcode();
+    const timer1 = setTimeout(focusBarcode, 100);
+    const timer2 = setTimeout(focusBarcode, 300);
+    const timer3 = setTimeout(focusBarcode, 500);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
   }, []);
+
+  // Capturar entrada del escáner a nivel de documento
+  useEffect(() => {
+    let barcodeBuffer = '';
+    let lastKeyTime = 0;
+
+    const handleKeyPress = (e) => {
+      const currentTime = Date.now();
+      const timeDiff = currentTime - lastKeyTime;
+
+      // Si hay más de 100ms entre teclas, resetear buffer (entrada manual)
+      if (timeDiff > 100) {
+        barcodeBuffer = '';
+      }
+
+      // Solo procesar si es un número o Enter
+      if (/[0-9]/.test(e.key)) {
+        barcodeBuffer += e.key;
+        lastKeyTime = currentTime;
+        
+        // Si hay entrada rápida (menos de 50ms entre teclas), es escáner
+        if (timeDiff < 50 && barcodeBuffer.length > 1) {
+          console.log('🔍 Escáner detectado, buffer:', barcodeBuffer);
+        }
+      } else if (e.key === 'Enter' && barcodeBuffer.length >= 6) {
+        // El escáner terminó con Enter
+        console.log('📱 Código escaneado completo:', barcodeBuffer);
+        setFormData(prev => ({
+          ...prev,
+          barcode: barcodeBuffer
+        }));
+        
+        // Enfocar siguiente campo
+        setTimeout(() => {
+          const nameInput = document.querySelector('input[name="name"]');
+          if (nameInput) nameInput.focus();
+        }, 100);
+        
+        barcodeBuffer = '';
+      }
+    };
+
+    document.addEventListener('keypress', handleKeyPress);
+    return () => document.removeEventListener('keypress', handleKeyPress);
+  }, []);
+
+  // Mantener el foco en el campo de código de barras si está vacío
+  useEffect(() => {
+    const handleFocusLoss = () => {
+      if (!formData.barcode && barcodeInputRef.current) {
+        setTimeout(() => {
+          barcodeInputRef.current.focus();
+        }, 10);
+      }
+    };
+
+    document.addEventListener('click', handleFocusLoss);
+    return () => document.removeEventListener('click', handleFocusLoss);
+  }, [formData.barcode]);
 
   useEffect(() => {
     if (product) {
@@ -155,16 +231,14 @@ export default function ProductForm({ product, onClose }) {
     }
   };
 
-  // Función para entrada manual rápida del código de barras
+  // Función para entrada del escáner y manual
   const handleBarcodeInput = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Si el input tiene más de 8 caracteres, probablemente es un código de barras escaneado
-      if (e.target.value.length >= 8) {
-        // Enfocar el siguiente campo (nombre del producto)
-        const nameInput = document.querySelector('input[name="name"]');
-        if (nameInput) nameInput.focus();
-      }
+      console.log('📱 Código de barras ingresado:', e.target.value);
+      // Enfocar el siguiente campo (nombre del producto)
+      const nameInput = document.querySelector('input[name="name"]');
+      if (nameInput) nameInput.focus();
     }
   };
 
@@ -203,25 +277,48 @@ export default function ProductForm({ product, onClose }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Código de Barras con Scanner */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Código de Barras *
+      <div className="bg-blue-50 border-2 border-blue-400 p-6 rounded-lg">
+        <label className="block text-lg font-bold text-blue-800 mb-3">
+          📱 CÓDIGO DE BARRAS (SOLO NÚMEROS) *
         </label>
+        <div className="bg-white p-3 rounded border border-blue-300 mb-4">
+          <p className="text-sm text-blue-700 font-semibold">
+            🎯 CAMPO ENFOCADO - LISTO PARA ESCÁNER
+          </p>
+          <p className="text-xs text-blue-600">
+            El escáner escribirá automáticamente aquí y presionará Enter
+          </p>
+          <p className="text-xs text-green-600 mt-1">
+            💡 Si no funciona, haz clic en el campo azul y luego escanea
+          </p>
+        </div>
         <div className="flex gap-2">
           <div className="flex-1">
             <input
               ref={barcodeInputRef}
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               name="barcode"
               value={formData.barcode}
               onChange={handleChange}
               onKeyDown={handleBarcodeInput}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-nutriala-500 focus:border-transparent"
-              placeholder="Escanea o ingresa el código manualmente"
+              onInput={(e) => {
+                console.log('📝 Input detectado:', e.target.value);
+              }}
+              className="w-full px-3 py-2 border-2 border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-lg bg-white"
+              placeholder="Escanea el código de barras aquí"
+              autoComplete="off"
+              autoFocus
               required
             />
             {errors.barcode && (
               <p className="mt-1 text-sm text-red-600">{errors.barcode}</p>
+            )}
+            {formData.barcode && formData.barcode.length >= 6 && (
+              <p className="mt-2 text-sm text-green-600 font-bold bg-green-100 p-2 rounded">
+                ✅ Código de barras ingresado: {formData.barcode}
+              </p>
             )}
           </div>
           <button

@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useEffect } from 'react';
-import { db } from '../utils/database';
+import api, { getProducts, getSales } from '../utils/api';
 import toast from 'react-hot-toast';
 
 export const InventoryContext = createContext();
@@ -110,89 +110,153 @@ export function InventoryProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const [products, categories, suppliers, sales, settings] = await Promise.all([
-        db.products.orderBy('name').toArray(),
-        db.categories.orderBy('name').toArray(),
-        db.suppliers.orderBy('name').toArray(),
-        db.sales.orderBy('createdAt').reverse().limit(100).toArray(),
-        db.settings.toArray()
-      ]);
-
-      const settingsObj = settings.reduce((acc, setting) => {
-        acc[setting.key] = setting.value;
-        return acc;
-      }, {});
+      // Cargar SOLO desde API MongoDB
+      let products = [];
+      let categories = [];
+      let suppliers = [];
+      let sales = [];
+      let settings = {};
+      
+      try {
+        // Verificar si hay token de autenticación
+        let token = localStorage.getItem('authToken');
+        
+        if (!token) {
+          console.log('No hay token, intentando login automático...');
+          // Login automático con credenciales de admin
+          const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: 'admin@nutri-ala.com',
+              password: 'admin123'
+            })
+          });
+          
+          if (loginResponse.ok) {
+            const loginData = await loginResponse.json();
+            token = loginData.token;
+            localStorage.setItem('authToken', token);
+            console.log('Login automático exitoso');
+          } else {
+            throw new Error('Error en login automático');
+          }
+        }
+        
+        // Cargar SOLO desde API MongoDB
+        console.log('🔄 Cargando datos desde MongoDB API...');
+        const [productsResult, salesResult] = await Promise.all([
+          getProducts(),
+          getSales()
+        ]);
+        
+        console.log('📦 Respuesta productos:', productsResult);
+        console.log('💰 Respuesta ventas:', salesResult);
+        
+        // El API devuelve objetos con formato {products: [...], totalPages: ...}
+        products = Array.isArray(productsResult?.products) ? productsResult.products : 
+                   Array.isArray(productsResult) ? productsResult : [];
+        sales = Array.isArray(salesResult) ? salesResult : [];
+        
+        // NO usar datos locales - solo API
+        categories = [
+          { id: 1, name: 'Proteínas' },
+          { id: 2, name: 'Vitaminas' },
+          { id: 3, name: 'Suplementos' },
+          { id: 4, name: 'Bebidas' },
+          { id: 5, name: 'Accesorios' }
+        ];
+        suppliers = [];  // Se podrían cargar desde API si hubiera endpoint
+        settings = { taxRate: 16 }; // Configuración básica hardcodeada
+        
+        console.log('✅ Datos cargados desde MongoDB:', { 
+          products: products.length, 
+          sales: sales.length
+        });
+      } catch (apiError) {
+        console.error('❌ API MongoDB no disponible:', apiError);
+        throw new Error('No se puede conectar a la base de datos. Verifique que el servidor esté funcionando.');
+      }
 
       dispatch({ type: 'SET_PRODUCTS', payload: products });
       dispatch({ type: 'SET_CATEGORIES', payload: categories });
       dispatch({ type: 'SET_SUPPLIERS', payload: suppliers });
       dispatch({ type: 'SET_SALES', payload: sales });
-      dispatch({ type: 'SET_SETTINGS', payload: settingsObj });
+      dispatch({ type: 'SET_SETTINGS', payload: settings });
     } catch (error) {
       console.error('Error loading data:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Error al cargar los datos' });
-      toast.error('Error al cargar los datos');
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      toast.error('Error al cargar los datos: ' + error.message);
     }
   };
 
-  // Product operations
+  // Product operations - Solo API
+  // Función para limpiar COMPLETAMENTE todos los datos locales
+  const clearAllLocalData = () => {
+    console.log('🧹 Limpiando TODOS los datos locales...');
+    
+    // Limpiar localStorage completamente
+    localStorage.clear();
+    
+    // Limpiar sessionStorage
+    sessionStorage.clear();
+    
+    // Resetear state a valores iniciales
+    dispatch({ type: 'SET_PRODUCTS', payload: [] });
+    dispatch({ type: 'SET_SALES', payload: [] });
+    dispatch({ type: 'CLEAR_CURRENT_SALE' });
+    
+    console.log('✅ Todos los datos locales eliminados');
+  };
+
   const addProduct = async (productData) => {
     try {
-      const newProduct = {
-        ...productData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: true
-      };
+      console.log('📦 Agregando producto via API:', productData);
+      const newProduct = await api.products.create(productData);
       
-      const id = await db.products.add(newProduct);
-      const product = await db.products.get(id);
-      
-      dispatch({ type: 'ADD_PRODUCT', payload: product });
+      dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
       toast.success('Producto agregado exitosamente');
-      return product;
+      return newProduct;
     } catch (error) {
       console.error('Error adding product:', error);
-      toast.error('Error al agregar el producto');
+      toast.error('Error al agregar el producto: ' + error.message);
       throw error;
     }
   };
 
   const updateProduct = async (id, updates) => {
     try {
-      const updatedData = {
-        ...updates,
-        updatedAt: new Date()
-      };
+      console.log('📦 Actualizando producto via API:', id, updates);
+      const updatedProduct = await api.products.update(id, updates);
       
-      await db.products.update(id, updatedData);
-      const product = await db.products.get(id);
-      
-      dispatch({ type: 'UPDATE_PRODUCT', payload: product });
+      dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
       toast.success('Producto actualizado exitosamente');
-      return product;
+      return updatedProduct;
     } catch (error) {
       console.error('Error updating product:', error);
-      toast.error('Error al actualizar el producto');
+      toast.error('Error al actualizar el producto: ' + error.message);
       throw error;
     }
   };
 
   const deleteProduct = async (id) => {
     try {
-      await db.products.delete(id);
+      console.log('📦 Eliminando producto via API:', id);
+      await api.products.delete(id);
+      
       dispatch({ type: 'DELETE_PRODUCT', payload: id });
       toast.success('Producto eliminado exitosamente');
     } catch (error) {
       console.error('Error deleting product:', error);
-      toast.error('Error al eliminar el producto');
+      toast.error('Error al eliminar el producto: ' + error.message);
       throw error;
     }
   };
 
   const findProductByBarcode = async (barcode) => {
     try {
-      const product = await db.products.where('barcode').equals(barcode).first();
+      console.log('📦 Buscando producto por código de barras via API:', barcode);
+      const product = await api.products.getByBarcode(barcode);
       return product;
     } catch (error) {
       console.error('Error finding product by barcode:', error);
@@ -208,7 +272,7 @@ export function InventoryProvider({ children }) {
     }
 
     const saleItem = {
-      productId: product.id,
+      productId: product._id || product.id, // Usar _id de MongoDB primero, luego id como fallback
       productName: product.name,
       unitPrice: product.price,
       quantity,
@@ -247,60 +311,102 @@ export function InventoryProvider({ children }) {
       const taxes = subtotal * taxRate;
       const total = subtotal + taxes;
 
-      // Create sale record
-      const saleData = {
-        products: state.currentSale.length,
-        subtotal,
-        taxes,
-        total,
+      console.log('� VENTA - Items en carrito:', state.currentSale);
+      console.log('💰 VENTA - Datos calculados:', { subtotal, taxes, total });
+
+      // Validar que todos los productos tengan IDs válidos
+      const invalidProducts = state.currentSale.filter(item => !item.productId || typeof item.productId !== 'string');
+      if (invalidProducts.length > 0) {
+        console.error('❌ VENTA - Productos sin ID válido:', invalidProducts);
+        throw new Error('Algunos productos no tienen ID válido');
+      }
+
+      // Preparar datos para la API MongoDB con todos los campos requeridos      
+      const saleDataForAPI = {
+        saleNumber: `SALE-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+        items: state.currentSale.map(item => ({
+          product: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.unitPrice * item.quantity
+        })),
+        subtotal: subtotal,
+        discount: 0,
+        tax: taxes,
+        total: total,
         paymentMethod,
-        customerId,
-        cashierId: 1, // Default cashier
-        createdAt: new Date()
+        customer: customerId,
+        cashier: 'Sistema',
+        status: 'completada'
       };
 
-      const saleId = await db.sales.add(saleData);
+      console.log('� VENTA - Enviando a API:', JSON.stringify(saleDataForAPI, null, 2));
 
-      // Add sale items and update inventory
-      for (const item of state.currentSale) {
-        await db.saleItems.add({
-          saleId,
-          ...item
-        });
-
-        // Update product stock
-        const product = await db.products.get(item.productId);
-        if (product) {
-          await db.products.update(item.productId, {
-            stock: product.stock - item.quantity,
-            updatedAt: new Date()
+      // STEP 1: Asegurar autenticación
+      let currentToken = localStorage.getItem('authToken');
+      console.log('🔐 VENTA - Token actual:', currentToken ? 'PRESENTE' : 'AUSENTE');
+      
+      if (!currentToken) {
+        console.log('🔐 VENTA - No hay token, haciendo login...');
+        try {
+          const loginResponse = await fetch('http://localhost:5000/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: 'admin',
+              password: 'admin123'
+            })
           });
-
-          // Add inventory movement
-          await db.inventory.add({
-            productId: item.productId,
-            type: 'sale',
-            quantity: -item.quantity,
-            reason: `Venta #${saleId}`,
-            createdAt: new Date()
-          });
+          
+          if (!loginResponse.ok) {
+            throw new Error('Error en autenticación');
+          }
+          
+          const loginData = await loginResponse.json();
+          localStorage.setItem('authToken', loginData.token);
+          console.log('✅ VENTA - Login exitoso, token guardado');
+        } catch (loginError) {
+          console.error('❌ VENTA - Error en login:', loginError);
+          throw new Error('No se pudo autenticar para completar la venta');
         }
       }
 
-      // Update state
-      const completedSale = await db.sales.get(saleId);
-      dispatch({ type: 'ADD_SALE', payload: completedSale });
-      dispatch({ type: 'CLEAR_CURRENT_SALE' });
-      
-      // Refresh products to update stock
-      const updatedProducts = await db.products.orderBy('name').toArray();
-      dispatch({ type: 'SET_PRODUCTS', payload: updatedProducts });
+      // STEP 2: Enviar venta a la API
+      try {
+        console.log('📤 VENTA - Enviando venta a MongoDB...');
+        const completedSale = await api.sales.create(saleDataForAPI);
+        console.log('✅ VENTA - Guardada exitosamente:', completedSale);
 
-      toast.success(`Venta completada. Total: $${total.toFixed(2)}`);
-      return completedSale;
+        // STEP 3: Actualizar estado local
+        dispatch({ type: 'ADD_SALE', payload: completedSale });
+        dispatch({ type: 'CLEAR_CURRENT_SALE' });
+        
+        // Disparar evento para que FinancialContext recargue los datos
+        window.dispatchEvent(new CustomEvent('saleCompleted', { 
+          detail: { 
+            saleId: completedSale._id || completedSale.id,
+            total: completedSale.total,
+            sale: completedSale
+          } 
+        }));
+        
+        toast.success('Venta completada exitosamente');
+        return completedSale;
+
+      } catch (saleError) {
+        console.error('❌ VENTA - Error en API de ventas:', saleError);
+        console.error('❌ VENTA - Error details:', {
+          message: saleError.message,
+          status: saleError.status,
+          data: saleError.data
+        });
+        throw new Error(`Error al guardar venta: ${saleError.message}`);
+      }
+
     } catch (error) {
-      console.error('Error completing sale:', error);
-      toast.error('Error al completar la venta');
+      console.error('❌ VENTA - Error:', error);
+      toast.error(`Error al completar venta: ${error.message}`);
       throw error;
     }
   };
@@ -309,19 +415,14 @@ export function InventoryProvider({ children }) {
     dispatch({ type: 'CLEAR_CURRENT_SALE' });
   };
 
-  // Category actions
+  // Category actions - Simplificadas (sin API específica)
   const addCategory = async (name) => {
     try {
-      const exists = await db.categories.where('name').equalsIgnoreCase(name).first();
-      if (exists) {
-        toast.error('La categoría ya existe');
-        return;
-      }
-      const id = await db.categories.add({ name, createdAt: new Date() });
-      const updatedCategories = await db.categories.orderBy('name').toArray();
-      dispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-      toast.success('Categoría agregada');
-      return id;
+      // Por ahora, categorías se manejan como parte de los productos
+      // No hay endpoint específico para categorías
+      console.log('⚠️ Función addCategory: No implementada, usar la gestión de productos. Categoría:', name);
+      toast.warning('Las categorías se gestionan automáticamente con los productos');
+      return null;
     } catch (error) {
       toast.error('Error al agregar categoría');
       throw error;
@@ -330,35 +431,25 @@ export function InventoryProvider({ children }) {
 
   const deleteCategory = async (id) => {
     try {
-      // Verificar si hay productos usando esta categoría
-      const productsWithCategory = await db.products.where('category').equals((await db.categories.get(id)).name).count();
-      if (productsWithCategory > 0) {
-        toast.error('No se puede eliminar: hay productos usando esta categoría');
-        return;
-      }
-      await db.categories.delete(id);
-      const updatedCategories = await db.categories.orderBy('name').toArray();
-      dispatch({ type: 'SET_CATEGORIES', payload: updatedCategories });
-      toast.success('Categoría eliminada');
+      console.log('⚠️ Función deleteCategory: No implementada. ID:', id);
+      toast.warning('Las categorías se gestionan automáticamente con los productos');
     } catch (error) {
       toast.error('Error al eliminar categoría');
       throw error;
     }
   };
 
-  // Settings actions
+  // Settings actions - Simplificadas (guardadas en localStorage)
   const updateSetting = async (key, value) => {
     try {
-      const setting = await db.settings.where('key').equals(key).first();
-      if (setting) {
-        await db.settings.update(setting.id, { value, updatedAt: new Date() });
-      } else {
-        await db.settings.add({ key, value, updatedAt: new Date() });
-      }
-      // Refrescar settings en el estado
-      const settingsArr = await db.settings.toArray();
-      const settingsObj = settingsArr.reduce((acc, s) => { acc[s.key] = s.value; return acc; }, {});
-      dispatch({ type: 'SET_SETTINGS', payload: settingsObj });
+      const currentSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+      currentSettings[key] = value;
+      localStorage.setItem('appSettings', JSON.stringify(currentSettings));
+      
+      // Actualizar el estado
+      dispatch({ type: 'SET_SETTINGS', payload: currentSettings });
+      
+      toast.success('Configuración actualizada');
     } catch (error) {
       toast.error('Error al guardar configuración');
       throw error;
@@ -383,6 +474,8 @@ export function InventoryProvider({ children }) {
     deleteCategory,
     // Settings actions
     updateSetting,
+    // Data management
+    clearAllLocalData,
     // Utilities
     loadInitialData
   };
@@ -393,3 +486,5 @@ export function InventoryProvider({ children }) {
     </InventoryContext.Provider>
   );
 }
+
+export default InventoryContext;

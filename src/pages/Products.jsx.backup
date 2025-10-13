@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAdmin } from '../hooks/useAdmin';
+import { useAdmin } from '../context/AdminContext';
 import {
   PlusIcon,
   PencilIcon,
@@ -16,6 +16,7 @@ import { Button, Input, Card, Badge, Modal } from '../components/ui/index.jsx';
 import CategoryManagerModal from '../components/ui/CategoryManagerModal';
 import { useInventory } from '../hooks/useInventory';
 import ProductForm from '../components/ProductForm';
+import SimpleFinancialSummary from '../components/SimpleFinancialSummary';
 
 export default function Products() {
   const { isAdminMode } = useAdmin();
@@ -123,6 +124,9 @@ export default function Products() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Financial Summary - Solo en modo admin */}
+      {isAdminMode && <SimpleFinancialSummary />}
+      
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -259,12 +263,12 @@ export default function Products() {
                   </td>
                   <td className="table-cell text-right">
                     <span className="text-sm font-medium text-gray-900">
-                      ${product.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${product.price.toFixed(2)}
                     </span>
                   </td>
                   <td className="table-cell text-right">
                     <span className="text-sm text-gray-500">
-                      ${product.cost.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${product.cost.toFixed(2)}
                     </span>
                   </td>
                   <td className="table-cell text-center">

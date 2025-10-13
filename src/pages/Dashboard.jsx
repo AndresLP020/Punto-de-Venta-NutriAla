@@ -1,54 +1,33 @@
-import React, { useMemo, useState } from 'react';
-import { useAdmin } from '../context/AdminContext';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CubeIcon,
-  CurrencyDollarIcon,
   ShoppingCartIcon,
   ExclamationTriangleIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ArrowTrendingDownIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { Card, Badge } from '../components/ui/index.jsx';
-import RefundForm from '../components/ui/RefundForm.jsx';
-import AdminExpenseForm from '../components/ui/AdminExpenseForm.jsx';
 import { useInventory } from '../hooks/useInventory';
 
 export default function Dashboard() {
-  const { products, sales } = useInventory();
-  const { isAdminMode } = useAdmin();
+  const { products, sales, loadInitialData, clearAllLocalData } = useInventory();
 
-  // Estado para gastos personales del admin (debe estar dentro del componente)
-  const [adminExpenses, setAdminExpenses] = useState([
-    { id: 1, date: new Date(), amount: 250.00, description: 'Papelería' },
-    { id: 2, date: new Date(), amount: 500.00, description: 'Comida de trabajo' }
-  ]);
-  const [editingExpense, setEditingExpense] = useState(null);
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-
-  const totalExpenses = adminExpenses.length;
-  const totalExpenseAmount = adminExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-  const handleEditExpense = (expense) => {
-    setEditingExpense(expense);
-    setShowExpenseForm(true);
+  const handleReloadData = () => {
+    console.log('🔄 Recargando datos manualmente...');
+    loadInitialData();
   };
-  const handleDeleteExpense = (id) => {
-    setAdminExpenses(adminExpenses.filter(e => e.id !== id));
-  };
-  const handleSaveExpense = (expense) => {
-    if (expense.id) {
-      setAdminExpenses(adminExpenses.map(e => e.id === expense.id ? { ...expense } : e));
-    } else {
-      setAdminExpenses([...adminExpenses, { ...expense, id: Date.now() }]);
+
+  const handleClearAllData = () => {
+    if (window.confirm('⚠️ ¿Estás seguro de que quieres eliminar TODOS los datos locales? Esta acción no se puede deshacer.')) {
+      clearAllLocalData();
+      alert('✅ Todos los datos locales han sido eliminados. La página se recargará.');
+      window.location.reload();
     }
-    setShowExpenseForm(false);
-    setEditingExpense(null);
   };
-  const handleAddExpense = () => {
-    setEditingExpense(null);
-    setShowExpenseForm(true);
-  };
+
+
 
   // Calculate metrics
   const metrics = useMemo(() => {
@@ -93,15 +72,7 @@ export default function Dashboard() {
       color: 'bg-blue-500',
       link: '/products'
     },
-    // Solo mostrar "Ventas Hoy" si es admin
-    ...(isAdminMode ? [{
-      title: 'Ventas Hoy',
-      value: `$${metrics.todayRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
-      icon: CurrencyDollarIcon,
-      color: 'bg-green-500',
-      change: metrics.revenueChange,
-      link: '/sales'
-    }] : []),
+
     {
       title: 'Transacciones Hoy',
       value: metrics.todaySales,
@@ -126,21 +97,19 @@ export default function Dashboard() {
   const topProducts = useMemo(() => {
     const productSales = {};
     
-    sales.forEach(sale => {
-      // Note: In a real app, you'd join with sale_items table
-      // For now, we'll simulate this
-      products.forEach(product => {
-        if (!productSales[product.id]) {
-          productSales[product.id] = {
-            product,
-            totalSold: 0,
-            revenue: 0
-          };
-        }
-        // Simulate some sales data
-        productSales[product.id].totalSold += Math.floor(Math.random() * 3);
-        productSales[product.id].revenue += productSales[product.id].totalSold * product.price;
-      });
+    // Initialize product sales tracking
+    products.forEach(product => {
+      if (!productSales[product.id]) {
+        productSales[product.id] = {
+          product,
+          totalSold: 0,
+          revenue: 0
+        };
+      }
+      // Simulate some sales data based on available products and sales
+      const simulatedSales = Math.floor(Math.random() * Math.min(sales.length + 1, 10));
+      productSales[product.id].totalSold += simulatedSales;
+      productSales[product.id].revenue += simulatedSales * product.price;
     });
 
     return Object.values(productSales)
@@ -148,41 +117,41 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [products, sales]);
 
-  // Simulación de devoluciones (en una app real, obtén esto de la base de datos)
-  // Estado para devoluciones editables
-  const [refunds, setRefunds] = useState([
-    { id: 1, date: new Date(), amount: 120.00, reason: 'Producto dañado', user: 'Juan Pérez' },
-    { id: 2, date: new Date(), amount: 80.00, reason: 'Error en compra', user: 'Ana López' }
-  ]);
-  const [editingRefund, setEditingRefund] = useState(null);
-  const [showRefundForm, setShowRefundForm] = useState(false);
 
-  const totalRefunds = refunds.length;
-  const totalRefundAmount = refunds.reduce((sum, r) => sum + r.amount, 0);
-
-  const handleEditRefund = (refund) => {
-    setEditingRefund(refund);
-    setShowRefundForm(true);
-  };
-  const handleDeleteRefund = (id) => {
-    setRefunds(refunds.filter(r => r.id !== id));
-  };
-  const handleSaveRefund = (refund) => {
-    if (refund.id) {
-      setRefunds(refunds.map(r => r.id === refund.id ? { ...refund } : r));
-    } else {
-      setRefunds([...refunds, { ...refund, id: Date.now() }]);
-    }
-    setShowRefundForm(false);
-    setEditingRefund(null);
-  };
-  const handleAddRefund = () => {
-    setEditingRefund(null);
-    setShowRefundForm(true);
-  };
 
   return (
     <div className="space-y-6">
+      {/* Debug Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-blue-800">
+            <strong>Debug:</strong> Productos: {products.length} | Ventas: {sales.length}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            {products.length === 0 ? '⚠️ No hay productos cargados' : '✅ Productos cargados'}
+            {' | '}
+            {sales.length === 0 ? '⚠️ No hay ventas cargadas' : '✅ Ventas cargadas'}
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleReloadData}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            <span>Recargar Datos</span>
+          </button>
+          
+          <button
+            onClick={handleClearAllData}
+            className="flex items-center space-x-2 bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 transition-colors"
+          >
+            <ExclamationTriangleIcon className="h-4 w-4" />
+            <span>Limpiar Todo</span>
+          </button>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => (
@@ -244,7 +213,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium text-gray-900">
-                      ${sale.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      ${sale.total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <Badge variant="success">{sale.paymentMethod}</Badge>
                   </div>
@@ -287,7 +256,7 @@ export default function Dashboard() {
                       {item.totalSold} vendidos
                     </p>
                     <p className="text-xs text-gray-500">
-                      ${item.revenue.toLocaleString('es-MX')}
+                      ${item.revenue.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -300,75 +269,6 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
-
-      {/* Inventory Value solo para admin */}
-      {isAdminMode && (
-        <>
-          <Card>
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Valor Total del Inventario
-              </h3>
-              <p className="text-3xl font-bold text-nutriala-600">
-                ${metrics.totalInventoryValue.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Basado en costos de productos activos
-              </p>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="text-center">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-medium text-gray-900">Devoluciones</h3>
-                <button onClick={handleAddRefund} className="px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-sm">Agregar</button>
-              </div>
-              <p className="text-2xl font-bold text-red-500 mb-1">{totalRefunds} devoluciones</p>
-              <p className="text-lg font-semibold text-gray-700 mb-2">Total: <span className="text-red-600">${totalRefundAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></p>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm mt-2">
-                  <thead>
-                    <tr>
-                      <th className="px-2 py-1 text-gray-500 font-medium">Fecha</th>
-                      <th className="px-2 py-1 text-gray-500 font-medium">Usuario</th>
-                      <th className="px-2 py-1 text-gray-500 font-medium">Motivo</th>
-                      <th className="px-2 py-1 text-gray-500 font-medium">Monto</th>
-                      <th className="px-2 py-1"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {refunds.map(refund => (
-                      <tr key={refund.id} className="border-b last:border-b-0">
-                        <td className="px-2 py-1">{refund.date.toLocaleDateString('es-MX')}<br/><span className="text-xs text-gray-400">{refund.date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span></td>
-                        <td className="px-2 py-1">{refund.user}</td>
-                        <td className="px-2 py-1">{refund.reason}</td>
-                        <td className="px-2 py-1 text-red-600 font-semibold">${refund.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                        <td className="px-2 py-1 flex gap-2">
-                          <button onClick={() => handleEditRefund(refund)} className="px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 text-xs">Editar</button>
-                          <button onClick={() => handleDeleteRefund(refund.id)} className="px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 text-xs">Eliminar</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Modal para editar/crear devolución */}
-              {showRefundForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-                  <div className="bg-white rounded-lg shadow-xl p-4 w-full max-w-md relative">
-                    <RefundForm
-                      refund={editingRefund}
-                      onSave={handleSaveRefund}
-                      onCancel={() => { setShowRefundForm(false); setEditingRefund(null); }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-        </>
-      )}
     </div>
   );
 }

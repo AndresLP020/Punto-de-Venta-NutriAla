@@ -14,7 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Card, Button } from '../components/ui/index.jsx';
 import { useInventory } from '../hooks/useInventory';
-import { useAdmin } from '../context/AdminContext';
+import { useAdmin } from '../hooks/useAdmin';
 import {
   BarChart,
   Bar,
@@ -191,7 +191,7 @@ export default function AdminReports() {
           <div className="flex items-center justify-between p-6">
             <div>
               <p className="text-green-100 text-sm font-medium">Ingresos Totales</p>
-              <p className="text-3xl font-bold">${reportMetrics.totalRevenue.toLocaleString('es-MX')}</p>
+              <p className="text-3xl font-bold">${reportMetrics.totalRevenue.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <ArrowTrendingUpIcon className="h-4 w-4 text-green-200 mr-1" />
                 <span className="text-sm text-green-200">+{reportMetrics.grossMargin.toFixed(1)}% margen</span>
@@ -205,7 +205,7 @@ export default function AdminReports() {
           <div className="flex items-center justify-between p-6">
             <div>
               <p className="text-blue-100 text-sm font-medium">Ganancia Bruta</p>
-              <p className="text-3xl font-bold">${reportMetrics.grossProfit.toLocaleString('es-MX')}</p>
+              <p className="text-3xl font-bold">${reportMetrics.grossProfit.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <span className="text-sm text-blue-200">Margen: {reportMetrics.grossMargin.toFixed(1)}%</span>
               </div>
@@ -218,7 +218,7 @@ export default function AdminReports() {
           <div className="flex items-center justify-between p-6">
             <div>
               <p className="text-purple-100 text-sm font-medium">Costos Operativos</p>
-              <p className="text-3xl font-bold">${reportMetrics.totalCost.toLocaleString('es-MX')}</p>
+              <p className="text-3xl font-bold">${reportMetrics.totalCost.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="flex items-center mt-2">
                 <span className="text-sm text-purple-200">60% del total</span>
               </div>
@@ -299,8 +299,8 @@ export default function AdminReports() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">${product.value.toLocaleString('es-MX')}</p>
-                    <p className="text-sm text-green-600">+${product.profit.toLocaleString('es-MX')} ganancia</p>
+                    <p className="font-semibold text-gray-900">${product.value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-sm text-green-600">+${product.profit.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ganancia</p>
                   </div>
                 </div>
               ))}

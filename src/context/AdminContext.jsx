@@ -1,28 +1,28 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-const AdminContext = createContext();
-
-export const useAdmin = () => {
-  const context = useContext(AdminContext);
-  if (!context) {
-    throw new Error('useAdmin must be used within an AdminProvider');
-  }
-  return context;
-};
+import React, { useState, useEffect } from 'react';
+import { AdminContext } from './AdminContextDef';
 
 export function AdminProvider({ children }) {
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Admin credentials (en una app real, esto sería más seguro)
-  const ADMIN_PASSWORD = 'admin123';
-
-  // Check if user is already in admin mode from localStorage
+  // Check authentication status on app load
   useEffect(() => {
-    const savedAdminMode = localStorage.getItem('nutriala_admin_mode');
-    if (savedAdminMode === 'true') {
-      setIsAdminMode(true);
-    }
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem('authToken');
+      const savedAdminMode = localStorage.getItem('nutriala_admin_mode');
+      
+      if (token) {
+        setIsAuthenticated(true);
+        if (savedAdminMode === 'true') {
+          setIsAdminMode(true);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    checkAuthStatus();
   }, []);
 
   const enterAdminMode = async (password) => {
@@ -30,6 +30,8 @@ export function AdminProvider({ children }) {
     
     // Simulate authentication delay
     await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const ADMIN_PASSWORD = 'admin123';
     
     if (password === ADMIN_PASSWORD) {
       setIsAdminMode(true);
@@ -45,12 +47,18 @@ export function AdminProvider({ children }) {
 
   const exitAdminMode = () => {
     setIsAdminMode(false);
+    setIsAuthenticated(false);
     localStorage.removeItem('nutriala_admin_mode');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
   };
 
   const value = {
     isAdminMode,
+    isAuthenticated,
     isAuthenticating,
+    isLoading,
+    setIsAuthenticated,
     enterAdminMode,
     exitAdminMode
   };

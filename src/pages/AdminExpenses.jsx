@@ -1,25 +1,31 @@
 import React, { useState } from 'react';
 import AdminExpenseForm from '../components/ui/AdminExpenseForm.jsx';
 import { CurrencyDollarIcon } from '@heroicons/react/24/outline';
-
+import { useFinancial } from '../hooks/useFinancial';
 
 export default function AdminExpenses() {
-  const [adminExpenses, setAdminExpenses] = useState([
-    { id: 1, date: new Date(), amount: 250.00, description: 'Papelería', category: 'Escuelas' },
-    { id: 2, date: new Date(), amount: 500.00, description: 'Comida de trabajo', category: 'Diversos' },
-    { id: 3, date: new Date(), amount: 1200.00, description: 'Seguro médico', category: 'Salud' },
-    { id: 4, date: new Date(), amount: 800.00, description: 'Mantenimiento auto', category: 'Automotriz' },
-    { id: 5, date: new Date(), amount: 3500.00, description: 'Pago de sueldos', category: 'Sueldos' },
-    { id: 6, date: new Date(), amount: 900.00, description: 'Viáticos Monterrey', category: 'Viáticos' },
-    { id: 7, date: new Date(), amount: 400.00, description: 'Netflix y Spotify', category: 'Entretenimiento' },
-    { id: 8, date: new Date(), amount: 600.00, description: 'Gas LP', category: 'Servicios básicos de casa' },
-    { id: 9, date: new Date(), amount: 750.00, description: 'Pago de luz', category: 'Servicios básicos de casa' },
-    { id: 10, date: new Date(), amount: 300.00, description: 'Pago de agua', category: 'Servicios básicos de casa' },
-    { id: 11, date: new Date(), amount: 1200.00, description: 'Despensa semanal', category: 'Compras familiares' },
-    { id: 12, date: new Date(), amount: 350.00, description: 'Artículos de limpieza', category: 'Compras familiares' },
-    { id: 13, date: new Date(), amount: 2200.00, description: 'Pago de renta local', category: 'Gastos de la empresa' },
-    { id: 14, date: new Date(), amount: 1800.00, description: 'Publicidad en redes', category: 'Gastos de la empresa' },
-  ]);
+  const {
+    adminExpenses,
+    totalAdminExpenses,
+    monthlyRevenue,
+    monthlyNetProfit,
+    availableCash,
+    addAdminExpense,
+    updateAdminExpense,
+    deleteAdminExpense,
+    checkFinancialAlerts
+  } = useFinancial();
+
+  // Debug: Mostrar información del contexto financiero
+  console.log('🔍 AdminExpenses Debug:', {
+    adminExpenses,
+    totalAdminExpenses,
+    monthlyRevenue,
+    monthlyNetProfit,
+    availableCash,
+    adminExpensesLength: adminExpenses?.length || 0
+  });
+
   const categories = [
     'Todos',
     'Salud',
@@ -40,11 +46,11 @@ export default function AdminExpenses() {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
 
   // Filtrar y ordenar: más reciente primero
-
   let filteredExpenses = (selectedCategory === 'Todos'
     ? adminExpenses
     : adminExpenses.filter(e => e.category === selectedCategory)
   );
+
   // Filtrar por rango de fechas personalizado si está seleccionado
   if (customDateFrom && customDateTo) {
     const from = new Date(customDateFrom);
@@ -55,9 +61,12 @@ export default function AdminExpenses() {
       return d >= from && d <= to;
     });
   }
-  filteredExpenses = filteredExpenses.slice().sort((a, b) => b.date - a.date); // más reciente primero
+  filteredExpenses = filteredExpenses.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const totalExpenseAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Alertas financieras
+  const alerts = checkFinancialAlerts();
 
   // Resúmenes por periodo y categoría
   const isSameDay = (d1, d2) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
@@ -78,13 +87,14 @@ export default function AdminExpenses() {
     const grouped = {};
     expenses.forEach(e => {
       let periodKey;
-      if (periodFn === isSameDay) periodKey = e.date.toLocaleDateString('es-MX');
+      const expenseDate = new Date(e.date);
+      if (periodFn === isSameDay) periodKey = expenseDate.toLocaleDateString('es-MX');
       else if (periodFn === isSameWeek) {
-        const d = new Date(e.date);
+        const d = new Date(expenseDate);
         d.setDate(d.getDate() - d.getDay());
         periodKey = d.toLocaleDateString('es-MX');
-      } else if (periodFn === isSameMonth) periodKey = `${e.date.getMonth()+1}/${e.date.getFullYear()}`;
-      else if (periodFn === isSameYear) periodKey = `${e.date.getFullYear()}`;
+      } else if (periodFn === isSameMonth) periodKey = `${expenseDate.getMonth()+1}/${expenseDate.getFullYear()}`;
+      else if (periodFn === isSameYear) periodKey = `${expenseDate.getFullYear()}`;
       if (!grouped[periodKey]) grouped[periodKey] = {};
       if (!grouped[periodKey][e.category]) grouped[periodKey][e.category] = [];
       grouped[periodKey][e.category].push(e);
@@ -126,18 +136,27 @@ export default function AdminExpenses() {
     setEditingExpense(expense);
     setShowExpenseForm(true);
   };
-  const handleDeleteExpense = (id) => {
-    setAdminExpenses(adminExpenses.filter(e => e.id !== id));
-  };
-  const handleSaveExpense = (expense) => {
-    if (expense.id) {
-      setAdminExpenses(adminExpenses.map(e => e.id === expense.id ? { ...expense } : e));
-    } else {
-      setAdminExpenses([...adminExpenses, { ...expense, id: Date.now() }]);
+
+  const handleDeleteExpense = async (id) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este gasto?')) {
+      await deleteAdminExpense(id);
     }
-    setShowExpenseForm(false);
-    setEditingExpense(null);
   };
+
+  const handleSaveExpense = async (expenseData) => {
+    try {
+      if (editingExpense) {
+        await updateAdminExpense(editingExpense.id, expenseData);
+      } else {
+        await addAdminExpense(expenseData);
+      }
+      setShowExpenseForm(false);
+      setEditingExpense(null);
+    } catch (error) {
+      console.error('Error saving expense:', error);
+    }
+  };
+
   const handleAddExpense = () => {
     setEditingExpense(null);
     setShowExpenseForm(true);
@@ -157,6 +176,75 @@ export default function AdminExpenses() {
           </div>
         </div>
         <button onClick={handleAddExpense} className="px-7 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-700 text-white font-bold shadow-lg hover:scale-105 transition-transform text-lg">+ Agregar Gasto</button>
+      </div>
+
+      {/* Debug Info */}
+      <div className="w-full max-w-5xl mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-blue-800">
+              <strong>Debug:</strong> Gastos Admin: {adminExpenses?.length || 0} | Total: ${totalAdminExpenses?.toFixed(2) || '0.00'}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              {adminExpenses?.length === 0 ? '⚠️ No hay gastos administrativos registrados' : '✅ Gastos cargados desde base de datos'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-blue-600">
+              Ingresos: ${monthlyRevenue?.toFixed(2) || '0.00'} | Ganancia: ${monthlyNetProfit?.toFixed(2) || '0.00'}
+            </p>
+            <p className="text-xs text-blue-600">
+              Efectivo: ${availableCash?.toFixed(2) || '0.00'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Alertas financieras */}
+      {alerts.length > 0 && (
+        <div className="w-full max-w-5xl mb-6 space-y-2">
+          {alerts.map((alert, index) => (
+            <div
+              key={index}
+              className={`p-4 rounded-lg border-l-4 ${
+                alert.type === 'error' 
+                  ? 'bg-red-50 border-red-400 text-red-800' 
+                  : 'bg-yellow-50 border-yellow-400 text-yellow-800'
+              }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-2">
+                  {alert.type === 'error' ? '⚠️' : '⚡'}
+                </span>
+                {alert.message}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Resumen financiero integrado */}
+      <div className="w-full max-w-5xl mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="text-lg font-semibold text-green-700">Ingresos Mensuales</div>
+          <div className="text-2xl font-bold text-green-900">${monthlyRevenue.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits: 2})}</div>
+        </div>
+        <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+          <div className="text-lg font-semibold text-red-700">Gastos Administrativos</div>
+          <div className="text-2xl font-bold text-red-900">${totalAdminExpenses.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits: 2})}</div>
+        </div>
+        <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+          <div className="text-lg font-semibold text-emerald-700">Ganancia Neta Mensual</div>
+          <div className={`text-2xl font-bold ${monthlyNetProfit >= 0 ? 'text-emerald-900' : 'text-red-900'}`}>
+            ${monthlyNetProfit.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits: 2})}
+          </div>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="text-lg font-semibold text-purple-700">Efectivo Disponible</div>
+          <div className={`text-2xl font-bold ${availableCash >= 0 ? 'text-purple-900' : 'text-red-900'}`}>
+            ${availableCash.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits: 2})}
+          </div>
+        </div>
       </div>
 
       {/* Filtros, fechas y resumen destacado */}
@@ -208,8 +296,8 @@ export default function AdminExpenses() {
           <div className="flex items-center gap-4 bg-blue-50 rounded-2xl px-10 py-6 shadow-inner">
             <CurrencyDollarIcon className="h-10 w-10 text-blue-400" />
             <div>
-              <span className="block text-xl font-bold text-blue-700">Total Gastado</span>
-              <span className="block text-3xl font-extrabold text-blue-900">${totalExpenseAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              <span className="block text-xl font-bold text-blue-700">Total Gastado (Filtrado)</span>
+              <span className="block text-3xl font-extrabold text-blue-900">${totalExpenseAmount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
@@ -229,25 +317,25 @@ export default function AdminExpenses() {
             </select>
           </div>
           <ul className="ml-2 text-blue-900 text-sm">
-            {getSummaryByPeriod().map(({ period, total, categories }) => (
+            {getSummaryByPeriod().map(({ period, total, categories: cats }) => (
               <li key={period} className="mb-2">
-                <span className="font-bold">{period}:</span> <span className="font-bold">${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                <span className="font-bold">{period}:</span> <span className="font-bold">${total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 <ul className="ml-4 mt-1">
-                  {Object.entries(categories)
+                  {Object.entries(cats)
                     .map(([cat, arr]) => ({
                       cat,
                       arr,
                       total: arr.reduce((sum, e) => sum + e.amount, 0)
                     }))
                     .sort((a, b) => b.total - a.total)
-                    .map(({ cat, arr, total }) => (
+                    .map(({ cat, arr, total: catTotal }) => (
                       <li key={cat} className="mb-1">
-                        <span className="font-semibold text-blue-600">{cat}:</span> <span className="text-blue-800 font-bold">${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                        <span className="font-semibold text-blue-600">{cat}:</span> <span className="text-blue-800 font-bold">${catTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <ul className="ml-2">
                           {arr.slice().sort((a, b) => b.amount - a.amount).map(e => (
                             <li key={e.id} className="flex justify-between">
                               <span>{e.description}</span>
-                              <span className="font-bold">${e.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                              <span className="font-bold">${e.amount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </li>
                           ))}
                         </ul>
@@ -273,26 +361,44 @@ export default function AdminExpenses() {
             </tr>
           </thead>
           <tbody>
-            {filteredExpenses
-              .slice()
-              .sort((a, b) => b.amount - a.amount) // mayor gasto primero
-              .map(expense => (
-                <tr key={expense.id} className="border-b last:border-b-0 hover:bg-blue-50 transition-colors">
-                  <td className="px-6 py-4 font-mono text-gray-700 text-lg">{expense.date.toLocaleDateString('es-MX')}<br/><span className="text-xs text-gray-400">{expense.date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span></td>
-                  <td className="px-6 py-4 text-gray-900 font-bold">{expense.description}</td>
-                  <td className="px-6 py-4 text-blue-700 font-semibold">{expense.category}</td>
-                  <td className="px-6 py-4 text-blue-700 font-extrabold">${expense.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-6 py-4 flex gap-3">
-                    <button onClick={() => handleEditExpense(expense)} className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-base font-bold shadow">Editar</button>
-                    <button onClick={() => handleDeleteExpense(expense.id)} className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 text-base font-bold shadow">Eliminar</button>
-                  </td>
-                </tr>
-              ))
-            }
-            {filteredExpenses.length === 0 && (
+            {adminExpenses?.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-gray-400 text-2xl">No hay gastos registrados</td>
+                <td colSpan={5} className="text-center py-12">
+                  <div className="mb-4">
+                    <span className="text-6xl">📊</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">No hay gastos administrativos registrados</h3>
+                  <p className="text-gray-500 mb-4">Comienza agregando tu primer gasto administrativo usando el botón "Agregar Gasto"</p>
+                  <button 
+                    onClick={handleAddExpense}
+                    className="px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold"
+                  >
+                    ➕ Agregar Primer Gasto
+                  </button>
+                </td>
               </tr>
+            ) : (
+              filteredExpenses
+                .slice()
+                .sort((a, b) => b.amount - a.amount) // mayor gasto primero
+                .map(expense => (
+                  <tr key={expense.id} className="border-b last:border-b-0 hover:bg-blue-50 transition-colors">
+                    <td className="px-6 py-4 font-mono text-gray-700 text-lg">
+                      {new Date(expense.date).toLocaleDateString('es-MX')}
+                      <br/>
+                      <span className="text-xs text-gray-400">
+                        {new Date(expense.date).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-900 font-bold">{expense.description}</td>
+                    <td className="px-6 py-4 text-blue-700 font-semibold">{expense.category}</td>
+                    <td className="px-6 py-4 text-blue-700 font-extrabold">${expense.amount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-6 py-4 flex gap-3">
+                      <button onClick={() => handleEditExpense(expense)} className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-base font-bold shadow">Editar</button>
+                      <button onClick={() => handleDeleteExpense(expense.id)} className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 text-base font-bold shadow">Eliminar</button>
+                    </td>
+                  </tr>
+                ))
             )}
           </tbody>
         </table>

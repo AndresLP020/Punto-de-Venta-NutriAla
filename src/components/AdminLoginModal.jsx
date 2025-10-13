@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LockClosedIcon, EyeIcon, EyeSlashIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { Button, Input, Modal } from './ui/index.jsx';
-import { useAdmin } from '../context/AdminContext';
+import { useAdmin } from '../hooks/useAdmin';
 import toast from 'react-hot-toast';
 
 export default function AdminLoginModal({ isOpen, onClose }) {

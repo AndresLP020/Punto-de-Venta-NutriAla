@@ -4,10 +4,12 @@ import {
   BellIcon, 
   Cog6ToothIcon,
   ShieldCheckIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  PowerIcon
 } from '@heroicons/react/24/outline';
 import { useInventory } from '../../hooks/useInventory';
-import { useAdmin } from '../../context/AdminContext';
+import { useAdmin } from '../../hooks/useAdmin';
+import { useAuth } from '../../hooks/useAuth';
 import AdminLoginModal from '../AdminLoginModal';
 import { LowStockModal, SalesHistoryModal } from '../ui';
 
@@ -26,6 +28,7 @@ export default function Header() {
   const location = useLocation();
   const { products } = useInventory();
   const { isAdminMode, exitAdminMode } = useAdmin();
+  const { logout } = useAuth();
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showSalesHistory, setShowSalesHistory] = useState(false);
 
@@ -51,8 +54,9 @@ export default function Header() {
 
   const currentPageName = pageNames[location.pathname] || 'NutriAla';
 
-  // Productos con stock bajo
-  const lowStockList = products.filter(product => 
+  // Productos con stock bajo - asegurar que products sea un array
+  const safeProducts = Array.isArray(products) ? products : [];
+  const lowStockList = safeProducts.filter(product => 
     product.stock <= product.minStock && product.isActive
   );
   const lowStockCount = lowStockList.length;
@@ -64,6 +68,10 @@ export default function Header() {
 
   const handleAdminLogout = () => {
     exitAdminMode();
+  };
+
+  const handleSystemLogout = () => {
+    logout();
   };
 
   return (
@@ -135,6 +143,15 @@ export default function Header() {
           {/* Settings */}
           <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
             <Cog6ToothIcon className="h-5 w-5" />
+          </button>
+
+          {/* Logout Button */}
+          <button 
+            onClick={handleSystemLogout}
+            className="p-2 text-red-500 hover:text-red-600 transition-colors"
+            title="Cerrar Sesión"
+          >
+            <PowerIcon className="h-5 w-5" />
           </button>
 
           {/* User Info */}
