@@ -1,9 +1,7 @@
 console.log('🌍 API_BASE_URL =', import.meta.env.VITE_API_URL);
 
 // Configuración de la API
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-//const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Clase para manejo de errores de API
 export class APIError extends Error {
@@ -17,8 +15,12 @@ export class APIError extends Error {
 
 // Función para hacer peticiones HTTP
 async function apiRequest(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // ✅ Asegurarnos de que el endpoint tenga /api al inicio
+  const normalizedEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`;
+  const url = `${API_BASE_URL}${normalizedEndpoint}`;
   const token = localStorage.getItem('authToken');
+  
+  console.log('🌐 Haciendo petición a:', url);
   
   const config = {
     headers: {
@@ -35,9 +37,21 @@ async function apiRequest(endpoint, options = {}) {
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
+    
+    // Verificar si hay contenido antes de parsear JSON
+    const contentType = response.headers.get('content-type');
+    let data;
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      console.warn('⚠️ Respuesta no es JSON:', text);
+      data = { message: text };
+    }
 
     if (!response.ok) {
+      console.error('❌ Error en respuesta:', response.status, data);
       throw new APIError(
         data.message || 'Error en la petición',
         response.status,
@@ -47,16 +61,22 @@ async function apiRequest(endpoint, options = {}) {
 
     return data;
   } catch (error) {
+    console.error('❌ Error en apiRequest:', error);
     if (error instanceof APIError) {
       throw error;
     }
-    throw new APIError('Error de conexión', 500, { originalError: error.message });
+    throw new APIError(
+      'Error de conexión con el servidor', 
+      500, 
+      { originalError: error.message }
+    );
   }
 }
 
 // API de autenticación
 export const authAPI = {
   async login(credentials) {
+    console.log('🔐 Intentando login...');
     return apiRequest('/auth/login', {
       method: 'POST',
       body: credentials,
@@ -245,9 +265,10 @@ export const reportsAPI = {
 // Hook para verificar conectividad
 export const checkServerHealth = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await fetch(`${API_BASE_URL}/api/health`);
     return response.ok;
-  } catch {
+  } catch (error) {
+    console.error('❌ Error verificando salud del servidor:', error);
     return false;
   }
 };
@@ -282,7 +303,9 @@ export const getProducts = async () => {
   console.log('🔧 API: Respuesta de getProducts:', result);
   return result;
 };
+
 export const getCustomers = () => customersAPI.getAll();
+
 export const getSales = async () => {
   console.log('💰 API: Llamando a getSales...');
   try {
