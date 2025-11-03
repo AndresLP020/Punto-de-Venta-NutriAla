@@ -1,7 +1,12 @@
 console.log('🌍 API_BASE_URL =', import.meta.env.VITE_API_URL);
 
 // ✅ Configuración corregida - sin /api en VITE_API_URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// En producción usa el proxy de Vercel (mismo dominio), en desarrollo usa localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
+    : '' // En producción, las peticiones van al mismo dominio gracias al proxy
+);
 
 // Clase para manejo de errores de API
 export class APIError extends Error {
