@@ -124,7 +124,7 @@ export function InventoryProvider({ children }) {
         if (!token) {
           console.log('No hay token, intentando login automático...');
           // Login automático con credenciales de admin
-          const loginResponse = await fetch('https://nutri-ala-backend.vercel.app/api/auth/login', {
+          const loginResponse = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -350,7 +350,7 @@ export function InventoryProvider({ children }) {
       if (!currentToken) {
         console.log('🔐 VENTA - No hay token, haciendo login...');
         try {
-          const loginResponse = await fetch('https://nutri-ala-backend.vercel.app/api/auth/login', {
+          const loginResponse = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
