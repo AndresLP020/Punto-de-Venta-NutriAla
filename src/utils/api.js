@@ -1,6 +1,6 @@
 console.log('🌍 API_BASE_URL =', import.meta.env.VITE_API_URL);
 
-// Configuración de la API
+// ✅ Configuración corregida - sin /api en VITE_API_URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Clase para manejo de errores de API
@@ -28,6 +28,7 @@ async function apiRequest(endpoint, options = {}) {
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
+    credentials: 'include', // ✅ Importante para CORS con credenciales
     ...options,
   };
 
@@ -313,8 +314,6 @@ export const getSales = async () => {
     console.log('💰 API: Respuesta de getSales:', result);
     console.log('💰 API: Número de ventas en resultado:', result?.totalSales || 0);
     
-    // El endpoint retorna {sales: [...], totalPages, currentPage, totalSales}
-    // Necesitamos solo el array de ventas
     const salesArray = result?.sales || [];
     console.log('💰 API: Array de ventas extraído:', salesArray?.length || 0);
     
