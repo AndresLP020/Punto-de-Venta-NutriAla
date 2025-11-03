@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://back-punto-de-venta-nutriala.vercel.app/api/:path*"
+    }
+  ]
+}
